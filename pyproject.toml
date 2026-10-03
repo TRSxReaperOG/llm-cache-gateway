@@ -1,0 +1,16 @@
+[project]
+name = "llm-cache-gateway"
+version = "0.1.0"
+description = "Semantic caching proxy for LLM APIs"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
