@@ -10,6 +10,7 @@ dependencies = [
     "voyageai",
     "python-dotenv",
     "sentence-transformers",
+    "httpx",
 ]
 
 [build-system]
