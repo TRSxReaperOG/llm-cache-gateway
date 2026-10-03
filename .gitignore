@@ -5,3 +5,6 @@ Phases/
 __pycache__/
 *.pyc
 *.egg-info/
+
+# Secrets
+.env

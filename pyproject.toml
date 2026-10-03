@@ -7,6 +7,8 @@ dependencies = [
     "fastapi",
     "uvicorn[standard]",
     "qdrant-client",
+    "voyageai",
+    "python-dotenv",
 ]
 
 [build-system]
