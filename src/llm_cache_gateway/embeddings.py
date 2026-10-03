@@ -1,20 +1,36 @@
 import os
 
-import voyageai
-from dotenv import load_dotenv
+from llm_cache_gateway.config import EMBEDDING_BACKEND
 
-load_dotenv()
+VOYAGE_MODEL = "voyage-3.5-lite"
+VOYAGE_DIMENSION = 1024
 
-EMBED_MODEL = "voyage-3.5-lite"
-EMBED_DIMENSION = 1024
+LOCAL_MODEL = "all-MiniLM-L6-v2"
+LOCAL_DIMENSION = 384
 
-_client = voyageai.Client(api_key=os.environ["VOYAGE_API_KEY"])
+if EMBEDDING_BACKEND == "voyage":
+    import voyageai
+
+    EMBED_DIMENSION = VOYAGE_DIMENSION
+    _voyage_client = voyageai.Client(api_key=os.environ["VOYAGE_API_KEY"])
+
+elif EMBEDDING_BACKEND == "local":
+    from sentence_transformers import SentenceTransformer
+
+    EMBED_DIMENSION = LOCAL_DIMENSION
+    _local_model = SentenceTransformer(LOCAL_MODEL)
+
+else:
+    raise ValueError(f"Unknown EMBEDDING_BACKEND: {EMBEDDING_BACKEND!r}")
 
 
 def embed_text(text: str) -> list[float]:
-    result = _client.embed(
-        [text],
-        model=EMBED_MODEL,
-        output_dimension=EMBED_DIMENSION,
-    )
-    return result.embeddings[0]
+    if EMBEDDING_BACKEND == "voyage":
+        result = _voyage_client.embed(
+            [text],
+            model=VOYAGE_MODEL,
+            output_dimension=VOYAGE_DIMENSION,
+        )
+        return result.embeddings[0]
+
+    return _local_model.encode(text).tolist()

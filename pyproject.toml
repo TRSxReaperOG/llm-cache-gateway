@@ -9,6 +9,7 @@ dependencies = [
     "qdrant-client",
     "voyageai",
     "python-dotenv",
+    "sentence-transformers",
 ]
 
 [build-system]
