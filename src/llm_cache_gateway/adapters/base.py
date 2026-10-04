@@ -14,3 +14,11 @@ class Adapter(ABC):
     @abstractmethod
     def forward_request(self, request_body: dict[str, Any], api_key: str) -> dict[str, Any]:
         """Send the request upstream to the real provider, return its raw response body."""
+
+    @abstractmethod
+    def extract_response_text(self, raw_response: dict[str, Any]) -> str:
+        """Pull the plain-text reply out of a provider-shaped response body."""
+
+    @abstractmethod
+    def extract_token_usage(self, raw_response: dict[str, Any]) -> int:
+        """Pull the total token count out of a provider-shaped response body."""

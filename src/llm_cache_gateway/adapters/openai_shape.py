@@ -42,3 +42,9 @@ class OpenAIShapeAdapter(Adapter):
         )
         response.raise_for_status()
         return response.json()
+
+    def extract_response_text(self, raw_response: dict[str, Any]) -> str:
+        return raw_response["choices"][0]["message"]["content"]
+
+    def extract_token_usage(self, raw_response: dict[str, Any]) -> int:
+        return raw_response.get("usage", {}).get("total_tokens", 0)

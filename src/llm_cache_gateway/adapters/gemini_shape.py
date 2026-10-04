@@ -43,3 +43,9 @@ class GeminiShapeAdapter(Adapter):
         )
         response.raise_for_status()
         return response.json()
+
+    def extract_response_text(self, raw_response: dict[str, Any]) -> str:
+        return raw_response["candidates"][0]["content"]["parts"][0]["text"]
+
+    def extract_token_usage(self, raw_response: dict[str, Any]) -> int:
+        return raw_response.get("usageMetadata", {}).get("totalTokenCount", 0)

@@ -32,3 +32,10 @@ class CohereShapeAdapter(Adapter):
         )
         response.raise_for_status()
         return response.json()
+
+    def extract_response_text(self, raw_response: dict[str, Any]) -> str:
+        return raw_response["message"]["content"][0]["text"]
+
+    def extract_token_usage(self, raw_response: dict[str, Any]) -> int:
+        billed_units = raw_response.get("usage", {}).get("billed_units", {})
+        return billed_units.get("input_tokens", 0) + billed_units.get("output_tokens", 0)

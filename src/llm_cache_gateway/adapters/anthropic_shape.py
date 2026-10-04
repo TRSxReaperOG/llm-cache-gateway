@@ -42,3 +42,10 @@ class AnthropicShapeAdapter(Adapter):
         )
         response.raise_for_status()
         return response.json()
+
+    def extract_response_text(self, raw_response: dict[str, Any]) -> str:
+        return raw_response["content"][0]["text"]
+
+    def extract_token_usage(self, raw_response: dict[str, Any]) -> int:
+        usage = raw_response.get("usage", {})
+        return usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
