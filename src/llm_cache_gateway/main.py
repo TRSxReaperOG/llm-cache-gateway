@@ -20,7 +20,9 @@ ADAPTERS = {
     "gemini": GeminiShapeAdapter(),
     "cohere": CohereShapeAdapter(),
 }
-SIMILARITY_THRESHOLD = 0.95
+# Picked from eval/THRESHOLD_DECISION.md: lowest threshold with zero false
+# positives on the labeled paraphrase/confusable-pair eval set.
+SIMILARITY_THRESHOLD = 0.93
 
 ensure_collection()
 

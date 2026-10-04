@@ -25,12 +25,16 @@ else:
 
 
 def embed_text(text: str) -> list[float]:
+    return embed_texts([text])[0]
+
+
+def embed_texts(texts: list[str]) -> list[list[float]]:
     if EMBEDDING_BACKEND == "voyage":
         result = _voyage_client.embed(
-            [text],
+            texts,
             model=VOYAGE_MODEL,
             output_dimension=VOYAGE_DIMENSION,
         )
-        return result.embeddings[0]
+        return result.embeddings
 
-    return _local_model.encode(text).tolist()
+    return _local_model.encode(texts).tolist()
