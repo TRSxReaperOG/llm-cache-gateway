@@ -12,6 +12,10 @@ Traditional exact-match caching barely helps, because real users rarely type the
 
 **llm-cache-gateway** sits between an application and its LLM provider as a drop-in proxy. It checks incoming prompts for *semantic* similarity to previously-seen prompts — not exact text match — and serves a cached response when a close-enough match exists, instead of paying for and waiting on a new model call.
 
+## Demo
+
+[**demo/demo.mov**](demo/demo.mov) — the live dashboard, asking the same question worded four different ways, watching it go from a real provider call to an instant cache hit, hit rate/cost/latency numbers updating live, and a genuine threshold-boundary miss (0.929 vs. the 0.93 cutoff) caught and explained on the spot. Click through to play it on GitHub.
+
 ## How it works
 
 ```mermaid
