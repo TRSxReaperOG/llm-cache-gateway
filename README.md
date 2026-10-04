@@ -129,3 +129,7 @@ The `0.93` similarity threshold wasn't guessed — it's the lowest threshold wit
 ![Threshold sweep](eval/results/voyage_threshold_curve.png)
 
 The eval set was also run against the local embedding fallback and compared to Voyage — see `eval/EMBEDDING_TRADEOFFS.md`.
+
+## License
+
+[MIT](LICENSE)
