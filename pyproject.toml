@@ -30,7 +30,7 @@ where = ["src"]
 
 [tool.ruff]
 line-length = 120
-extend-exclude = ["eval"]
+extend-exclude = ["eval", "benchmark"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

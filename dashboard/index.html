@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>llm-cache-gateway</title>
+<style>
+  :root {
+    --surface: #fcfcfb;
+    --page: #f4f3ef;
+    --ink: #0b0b0b;
+    --ink-secondary: #52514e;
+    --ink-muted: #898781;
+    --border: #e1e0d9;
+    --blue: #2a78d6;
+    --orange: #eb6834;
+    --green: #1baf7a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page);
+    color: var(--ink);
+    padding: 24px 16px 48px;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }
+  header h1 { font-size: 20px; margin: 0; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 0 0 rgba(27,175,122,0.5);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(27,175,122,0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(27,175,122,0); }
+    100% { box-shadow: 0 0 0 0 rgba(27,175,122,0); }
+  }
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+  .card .label {
+    font-size: 12px;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+  .card .value {
+    font-size: 28px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .card .sub {
+    font-size: 12px;
+    color: var(--ink-secondary);
+    margin-top: 4px;
+  }
+  section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  section h2 {
+    font-size: 14px;
+    margin: 0 0 12px;
+    color: var(--ink-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .latency-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .latency-row:last-child { margin-bottom: 0; }
+  .latency-label { width: 90px; font-size: 13px; color: var(--ink-secondary); flex-shrink: 0; }
+  .latency-track {
+    flex: 1;
+    height: 18px;
+    background: var(--page);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+  .latency-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .latency-fill.miss { background: var(--orange); }
+  .latency-fill.hit { background: var(--blue); }
+  .latency-ms { width: 70px; text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td {
+    text-align: left;
+    padding: 8px 6px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  th { color: var(--ink-muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  td.prompt { max-width: 0; width: 60%; }
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .badge.hit { background: rgba(42,120,214,0.12); color: var(--blue); }
+  .badge.miss { background: rgba(235,104,52,0.12); color: var(--orange); }
+  .empty { color: var(--ink-muted); font-size: 13px; padding: 12px 0; }
+
+  .try-row { display: flex; gap: 8px; margin-bottom: 8px; }
+  .try-row select, .try-row input[type="text"] {
+    flex: 1;
+    min-width: 0;
+  }
+  input, select, textarea {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink);
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--blue); outline-offset: -1px; }
+  textarea { resize: vertical; min-height: 64px; margin-bottom: 8px; }
+  #try-key { margin-bottom: 8px; }
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 9px 18px;
+    border: none;
+    border-radius: 6px;
+    background: var(--blue);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { background: var(--border); color: var(--ink-muted); cursor: default; }
+  .try-hint { font-size: 12px; color: var(--ink-muted); margin: 6px 0 12px; }
+  .try-status { font-size: 13px; color: var(--ink-secondary); margin-top: 8px; min-height: 18px; }
+  .try-output {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  .try-output-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  #try-answer {
+    font-size: 14px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    background: var(--page);
+    border-radius: 6px;
+    padding: 12px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="dot"></span>
+    <h1>llm-cache-gateway</h1>
+  </header>
+
+  <section>
+    <h2>Try it</h2>
+    <div class="try-row">
+      <select id="try-provider">
+        <option value="groq">groq</option>
+        <option value="openai">openai</option>
+        <option value="mistral">mistral</option>
+        <option value="together">together</option>
+        <option value="anthropic">anthropic</option>
+        <option value="gemini">gemini</option>
+        <option value="cohere">cohere</option>
+      </select>
+      <input type="text" id="try-model" placeholder="model">
+    </div>
+    <input type="password" id="try-key" placeholder="API key for the selected provider">
+    <textarea id="try-question" placeholder="Ask a question…"></textarea>
+    <button id="try-submit">Send</button>
+    <div class="try-hint">The key goes straight from your browser to this gateway over localhost and is never stored — nothing is saved when you reload.</div>
+    <div class="try-status" id="try-status"></div>
+    <div class="try-output" id="try-output" style="display:none">
+      <div class="try-output-head">
+        <span class="badge" id="try-result-badge"></span>
+      </div>
+      <div id="try-answer"></div>
+    </div>
+  </section>
+
+  <div class="cards">
+    <div class="card">
+      <div class="label">Hit rate</div>
+      <div class="value" id="hit-rate">—</div>
+      <div class="sub" id="hit-rate-sub">&nbsp;</div>
+    </div>
+    <div class="card">
+      <div class="label">Total requests</div>
+      <div class="value" id="total-requests">—</div>
+      <div class="sub" id="total-requests-sub">&nbsp;</div>
+    </div>
+    <div class="card">
+      <div class="label">Est. cost saved</div>
+      <div class="value" id="cost-saved">—</div>
+      <div class="sub"></div>
+    </div>
+    <div class="card">
+      <div class="label">Est. cost spent</div>
+      <div class="value" id="cost-spent">—</div>
+      <div class="sub">from real calls only</div>
+    </div>
+  </div>
+
+  <section>
+    <h2>Latency: hit vs. miss</h2>
+    <div class="latency-row">
+      <div class="latency-label">Miss (real)</div>
+      <div class="latency-track"><div class="latency-fill miss" id="miss-bar" style="width:0%"></div></div>
+      <div class="latency-ms" id="miss-ms">—</div>
+    </div>
+    <div class="latency-row">
+      <div class="latency-label">Hit (cached)</div>
+      <div class="latency-track"><div class="latency-fill hit" id="hit-bar" style="width:0%"></div></div>
+      <div class="latency-ms" id="hit-ms">—</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent requests</h2>
+    <table>
+      <thead>
+        <tr><th>Time</th><th>Provider</th><th></th><th>Prompt</th></tr>
+      </thead>
+      <tbody id="entries-body"></tbody>
+    </table>
+    <div class="empty" id="entries-empty" style="display:none">No requests yet — send one to the gateway.</div>
+  </section>
+</div>
+
+<script>
+const fmtUsd = (n) => '$' + Number(n).toFixed(4);
+const fmtPct = (n) => (n * 100).toFixed(0) + '%';
+const fmtMs = (n) => n === null || n === undefined ? '—' : Math.round(n) + 'ms';
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function refresh() {
+  try {
+    const [stats, requests] = await Promise.all([
+      fetch('/admin/stats').then(r => r.json()),
+      fetch('/admin/recent-requests').then(r => r.json()),
+    ]);
+    renderStats(stats);
+    renderEntries(requests);
+  } catch (e) {
+    console.error('dashboard refresh failed', e);
+  }
+}
+
+function renderStats(stats) {
+  document.getElementById('hit-rate').textContent = fmtPct(stats.hit_rate);
+  document.getElementById('hit-rate-sub').textContent =
+    `${stats.total_hits} hits / ${stats.total_entries} misses`;
+
+  document.getElementById('total-requests').textContent = stats.total_requests;
+  document.getElementById('total-requests-sub').textContent =
+    Object.entries(stats.entries_per_provider || {}).map(([p, n]) => `${p}: ${n}`).join(', ') || ' ';
+
+  document.getElementById('cost-saved').textContent = fmtUsd(stats.estimated_cost_saved_usd);
+  document.getElementById('cost-spent').textContent = fmtUsd(stats.estimated_cost_spent_usd);
+
+  const hitMs = stats.avg_hit_latency_ms;
+  const missMs = stats.avg_miss_latency_ms;
+  document.getElementById('hit-ms').textContent = fmtMs(hitMs);
+  document.getElementById('miss-ms').textContent = fmtMs(missMs);
+  const maxMs = Math.max(hitMs || 0, missMs || 0, 1);
+  document.getElementById('hit-bar').style.width = (hitMs ? (hitMs / maxMs) * 100 : 0) + '%';
+  document.getElementById('miss-bar').style.width = (missMs ? (missMs / maxMs) * 100 : 0) + '%';
+}
+
+function renderEntries(entries) {
+  const body = document.getElementById('entries-body');
+  const empty = document.getElementById('entries-empty');
+  if (!entries.length) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  body.innerHTML = entries.map((e) => {
+    const time = new Date(e.timestamp * 1000).toLocaleTimeString();
+    const badge = e.hit
+      ? '<span class="badge hit">hit</span>'
+      : '<span class="badge miss">miss</span>';
+    return `<tr>
+      <td>${time}</td>
+      <td>${escapeHtml(e.provider)}</td>
+      <td>${badge}</td>
+      <td class="prompt">${escapeHtml(e.prompt).slice(0, 80)}</td>
+    </tr>`;
+  }).join('');
+}
+
+const PROVIDERS = {
+  groq:      { defaultModel: 'openai/gpt-oss-20b', buildBody: (model, q) => ({ model, messages: [{ role: 'user', content: q }] }) },
+  openai:    { defaultModel: 'gpt-4o-mini', buildBody: (model, q) => ({ model, messages: [{ role: 'user', content: q }] }) },
+  mistral:   { defaultModel: 'mistral-small-latest', buildBody: (model, q) => ({ model, messages: [{ role: 'user', content: q }] }) },
+  together:  { defaultModel: 'meta-llama/Llama-3.3-70B-Instruct-Turbo', buildBody: (model, q) => ({ model, messages: [{ role: 'user', content: q }] }) },
+  anthropic: { defaultModel: 'claude-haiku-4-5-20251001', buildBody: (model, q) => ({ model, max_tokens: 512, messages: [{ role: 'user', content: q }] }) },
+  gemini:    { defaultModel: 'gemini-3.1-flash-lite', buildBody: (model, q) => ({ model, contents: [{ role: 'user', parts: [{ text: q }] }] }) },
+  cohere:    { defaultModel: 'command-a-03-2025', buildBody: (model, q) => ({ model, messages: [{ role: 'user', content: q }] }) },
+};
+
+function extractAnswerText(provider, data) {
+  if (provider === 'anthropic') return data.content?.[0]?.text ?? JSON.stringify(data);
+  if (provider === 'gemini') return data.candidates?.[0]?.content?.parts?.[0]?.text ?? JSON.stringify(data);
+  if (provider === 'cohere') return data.message?.content?.[0]?.text ?? JSON.stringify(data);
+  return data.choices?.[0]?.message?.content ?? JSON.stringify(data); // openai-shaped
+}
+
+const providerSelect = document.getElementById('try-provider');
+const modelInput = document.getElementById('try-model');
+providerSelect.addEventListener('change', () => {
+  modelInput.value = PROVIDERS[providerSelect.value].defaultModel;
+});
+modelInput.value = PROVIDERS[providerSelect.value].defaultModel;
+
+document.getElementById('try-submit').addEventListener('click', async () => {
+  const provider = providerSelect.value;
+  const model = modelInput.value.trim() || PROVIDERS[provider].defaultModel;
+  const key = document.getElementById('try-key').value.trim();
+  const question = document.getElementById('try-question').value.trim();
+  const statusEl = document.getElementById('try-status');
+  const outputEl = document.getElementById('try-output');
+  const submitBtn = document.getElementById('try-submit');
+
+  if (!key || !question) {
+    statusEl.textContent = 'Enter an API key and a question.';
+    return;
+  }
+
+  submitBtn.disabled = true;
+  statusEl.textContent = 'Sending…';
+  outputEl.style.display = 'none';
+
+  const body = PROVIDERS[provider].buildBody(model, question);
+  try {
+    const resp = await fetch(`/v1/proxy/${provider}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      statusEl.textContent = `Error ${resp.status}: ${errText.slice(0, 300)}`;
+      return;
+    }
+
+    const data = await resp.json();
+    const answer = extractAnswerText(provider, data);
+
+    // The gateway's own live feed is the authoritative source for hit/miss —
+    // more reliable than guessing from response shape (not every provider's
+    // cache-hit response is distinguishable from a real one by eye).
+    const recent = await fetch('/admin/recent-requests').then(r => r.json());
+    const wasHit = recent.length ? recent[0].hit : null;
+
+    document.getElementById('try-result-badge').className = 'badge ' + (wasHit ? 'hit' : 'miss');
+    document.getElementById('try-result-badge').textContent = wasHit ? 'cache hit' : 'real call';
+    document.getElementById('try-answer').textContent = answer;
+
+    statusEl.textContent = '';
+    outputEl.style.display = 'block';
+    refresh();
+  } catch (e) {
+    statusEl.textContent = 'Request failed: ' + e.message;
+  } finally {
+    submitBtn.disabled = false;
+  }
+});
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

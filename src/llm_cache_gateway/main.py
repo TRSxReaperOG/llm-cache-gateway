@@ -3,11 +3,14 @@ import json
 import logging
 import time
 import uuid
+from collections import deque
 from collections.abc import AsyncIterator
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from llm_cache_gateway.adapters.anthropic_shape import AnthropicShapeAdapter
 from llm_cache_gateway.adapters.base import Adapter
@@ -49,13 +52,28 @@ ADAPTERS = {
 # positives on the labeled paraphrase/confusable-pair eval set.
 SIMILARITY_THRESHOLD = 0.93
 STREAM_CHUNK_DELAY_SECONDS = 0.02
+LATENCY_SAMPLE_WINDOW = 50
 
 ensure_collection()
 
+DASHBOARD_DIR = Path(__file__).resolve().parent.parent.parent / "dashboard"
+app.mount("/dashboard", StaticFiles(directory=DASHBOARD_DIR, html=True), name="dashboard")
+
+# Rolling in-memory latency samples and request feed for the dashboard.
+# Presentational only — not persisted, resets on restart, not a substitute
+# for the structured logs. REQUEST_LOG covers every request (hit or miss);
+# Qdrant only stores one row per unique prompt (misses), so it alone can't
+# show a live feed where repeated hits visibly appear.
+HIT_LATENCIES_MS: deque[float] = deque(maxlen=LATENCY_SAMPLE_WINDOW)
+MISS_LATENCIES_MS: deque[float] = deque(maxlen=LATENCY_SAMPLE_WINDOW)
+REQUEST_LOG: deque[dict[str, Any]] = deque(maxlen=30)
+
 
 def log_request(
-    request_id: str, provider: str, hit: bool, latency_ms: float, tokens: int, cost_estimate_usd: float
+    request_id: str, provider: str, hit: bool, latency_ms: float, tokens: int, cost_estimate_usd: float, prompt: str
 ) -> None:
+    (HIT_LATENCIES_MS if hit else MISS_LATENCIES_MS).append(latency_ms)
+    REQUEST_LOG.appendleft({"timestamp": time.time(), "provider": provider, "hit": hit, "prompt": prompt})
     logger.info(
         json.dumps(
             {
@@ -77,12 +95,46 @@ def health() -> dict[str, str]:
 
 @app.get("/admin/stats")
 def admin_stats() -> dict[str, Any]:
-    return get_stats()
+    stats = get_stats()
+
+    miss_count = stats["total_entries"]  # every stored entry is exactly one past miss
+    hit_count = stats["total_hits"]
+    total_requests = miss_count + hit_count
+    hit_rate = hit_count / total_requests if total_requests else 0.0
+
+    spent_usd = sum(estimate_cost(provider, tokens) for provider, tokens in stats["tokens_per_provider"].items())
+    avg_cost_per_miss = spent_usd / miss_count if miss_count else 0.0
+    # Estimate: what a hit would have cost if it had been a real call instead,
+    # using the average observed cost per real call. Same method as
+    # benchmark/plot_results.py's cost-saved chart.
+    estimated_saved_usd = hit_count * avg_cost_per_miss
+
+    avg_hit_latency_ms = sum(HIT_LATENCIES_MS) / len(HIT_LATENCIES_MS) if HIT_LATENCIES_MS else None
+    avg_miss_latency_ms = sum(MISS_LATENCIES_MS) / len(MISS_LATENCIES_MS) if MISS_LATENCIES_MS else None
+
+    return {
+        **stats,
+        "total_requests": total_requests,
+        "hit_rate": hit_rate,
+        "estimated_cost_spent_usd": round(spent_usd, 6),
+        "estimated_cost_saved_usd": round(estimated_saved_usd, 6),
+        "avg_hit_latency_ms": round(avg_hit_latency_ms, 2) if avg_hit_latency_ms is not None else None,
+        "avg_miss_latency_ms": round(avg_miss_latency_ms, 2) if avg_miss_latency_ms is not None else None,
+        "hit_latency_samples": len(HIT_LATENCIES_MS),
+        "miss_latency_samples": len(MISS_LATENCIES_MS),
+    }
 
 
 @app.get("/admin/entries")
 def admin_entries(limit: int = 20) -> list[dict[str, Any]]:
     return list_recent(limit=limit)
+
+
+@app.get("/admin/recent-requests")
+def admin_recent_requests() -> list[dict[str, Any]]:
+    """Live per-request feed (hits and misses both), for the dashboard —
+    distinct from /admin/entries, which only lists stored cache entries."""
+    return list(REQUEST_LOG)
 
 
 @app.delete("/admin/cache")
@@ -126,7 +178,7 @@ async def _passthrough_miss_stream(
 
     response_text = "".join(full_text)
     store(vector, cache_key_text, response_text, provider=provider, tokens=0)
-    log_request(request_id, provider, False, (time.monotonic() - start) * 1000, 0, 0.0)
+    log_request(request_id, provider, False, (time.monotonic() - start) * 1000, 0, 0.0, cache_key_text)
 
 
 @app.post("/v1/proxy/{provider}/chat/completions")
@@ -153,7 +205,7 @@ async def chat_completions(provider: str, request: Request) -> Any:
         match = matches[0]
         record_hit(str(match.id))
         cached_response_text = (match.payload or {})["response"]
-        log_request(request_id, provider, True, (time.monotonic() - start) * 1000, 0, 0.0)
+        log_request(request_id, provider, True, (time.monotonic() - start) * 1000, 0, 0.0, cache_key_text)
 
         if wants_stream:
             stream = _simulated_hit_stream(adapter, cached_response_text)
@@ -170,6 +222,7 @@ async def chat_completions(provider: str, request: Request) -> Any:
     response_text = adapter.extract_response_text(response)
     tokens = adapter.extract_token_usage(response)
     store(vector, cache_key_text, response_text, provider=provider, tokens=tokens)
-    log_request(request_id, provider, False, (time.monotonic() - start) * 1000, tokens, estimate_cost(provider, tokens))
+    cost_estimate = estimate_cost(provider, tokens)
+    log_request(request_id, provider, False, (time.monotonic() - start) * 1000, tokens, cost_estimate, cache_key_text)
 
     return response

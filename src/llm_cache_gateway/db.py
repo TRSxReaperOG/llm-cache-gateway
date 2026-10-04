@@ -127,13 +127,14 @@ def get_stats() -> dict:
 
     total_hits = 0
     per_provider: dict[str, int] = {}
+    tokens_per_provider: dict[str, int] = {}
     offset = None
     while True:
         points, offset = client.scroll(
             collection_name=COLLECTION_NAME,
             limit=256,
             offset=offset,
-            with_payload=["provider", "hit_count"],
+            with_payload=["provider", "hit_count", "tokens"],
             with_vectors=False,
         )
         for point in points:
@@ -141,10 +142,16 @@ def get_stats() -> dict:
             total_hits += payload.get("hit_count", 0)
             provider = payload.get("provider", "unknown")
             per_provider[provider] = per_provider.get(provider, 0) + 1
+            tokens_per_provider[provider] = tokens_per_provider.get(provider, 0) + payload.get("tokens", 0)
         if offset is None:
             break
 
-    return {"total_entries": total, "total_hits": total_hits, "entries_per_provider": per_provider}
+    return {
+        "total_entries": total,
+        "total_hits": total_hits,
+        "entries_per_provider": per_provider,
+        "tokens_per_provider": tokens_per_provider,
+    }
 
 
 def list_recent(limit: int = 20) -> list[dict]:
