@@ -1,3 +1,4 @@
+
 # llm-cache-gateway
 
 ## Problem
@@ -14,7 +15,7 @@ Traditional exact-match caching barely helps, because real users rarely type the
 
 ## Demo
 
-[**demo/demo.mp4**](demo/demo.mp4) — the live dashboard, asking the same question worded four different ways, watching it go from a real provider call to an instant cache hit, hit rate/cost/latency numbers updating live, and a genuine threshold-boundary miss (0.929 vs. the 0.93 cutoff) caught and explained on the spot. Click through to play it on GitHub.
+https://github.com/user-attachments/assets/57a80ca0-59a6-4453-a80b-c76ee482a58a
 
 ## How it works
 
