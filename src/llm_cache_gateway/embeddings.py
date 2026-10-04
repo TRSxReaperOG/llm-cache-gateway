@@ -35,6 +35,6 @@ def embed_texts(texts: list[str]) -> list[list[float]]:
             model=VOYAGE_MODEL,
             output_dimension=VOYAGE_DIMENSION,
         )
-        return result.embeddings
+        return [[float(x) for x in vector] for vector in result.embeddings]
 
-    return _local_model.encode(texts).tolist()
+    return [[float(x) for x in vector] for vector in _local_model.encode(texts).tolist()]

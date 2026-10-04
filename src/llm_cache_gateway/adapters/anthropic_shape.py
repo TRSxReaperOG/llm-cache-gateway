@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from llm_cache_gateway.adapters.base import Adapter
+from llm_cache_gateway.config import CONTEXT_MESSAGES
 
 ANTHROPIC_VERSION = "2023-06-01"
 
@@ -14,11 +15,17 @@ class AnthropicShapeAdapter(Adapter):
     def __init__(self, base_url: str = "https://api.anthropic.com/v1"):
         self.base_url = base_url.rstrip("/")
 
-    def extract_prompt(self, request_body: dict[str, Any]) -> str:
-        content = request_body["messages"][-1]["content"]
+    def _message_text(self, content: str | list[dict[str, Any]]) -> str:
         if isinstance(content, str):
             return content
         return next(block["text"] for block in content if block["type"] == "text")
+
+    def extract_prompt(self, request_body: dict[str, Any]) -> str:
+        return self._message_text(request_body["messages"][-1]["content"])
+
+    def extract_cache_key_text(self, request_body: dict[str, Any]) -> str:
+        messages = request_body["messages"][-CONTEXT_MESSAGES:]
+        return "\n".join(f"{m['role']}: {self._message_text(m['content'])}" for m in messages)
 
     def build_response(self, prompt: str, response_text: str) -> dict[str, Any]:
         return {

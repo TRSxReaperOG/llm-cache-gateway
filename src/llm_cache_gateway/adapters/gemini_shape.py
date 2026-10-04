@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from llm_cache_gateway.adapters.base import Adapter
+from llm_cache_gateway.config import CONTEXT_MESSAGES
 
 
 class GeminiShapeAdapter(Adapter):
@@ -15,6 +16,14 @@ class GeminiShapeAdapter(Adapter):
     def extract_prompt(self, request_body: dict[str, Any]) -> str:
         parts = request_body["contents"][-1]["parts"]
         return "".join(part["text"] for part in parts if "text" in part)
+
+    def extract_cache_key_text(self, request_body: dict[str, Any]) -> str:
+        contents = request_body["contents"][-CONTEXT_MESSAGES:]
+        lines = []
+        for entry in contents:
+            text = "".join(part["text"] for part in entry["parts"] if "text" in part)
+            lines.append(f"{entry['role']}: {text}")
+        return "\n".join(lines)
 
     def build_response(self, prompt: str, response_text: str) -> dict[str, Any]:
         return {

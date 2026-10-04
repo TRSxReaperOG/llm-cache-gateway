@@ -3,6 +3,7 @@ from typing import Any
 import httpx
 
 from llm_cache_gateway.adapters.base import Adapter
+from llm_cache_gateway.config import CONTEXT_MESSAGES
 
 
 class CohereShapeAdapter(Adapter):
@@ -14,6 +15,10 @@ class CohereShapeAdapter(Adapter):
 
     def extract_prompt(self, request_body: dict[str, Any]) -> str:
         return request_body["messages"][-1]["content"]
+
+    def extract_cache_key_text(self, request_body: dict[str, Any]) -> str:
+        messages = request_body["messages"][-CONTEXT_MESSAGES:]
+        return "\n".join(f"{m['role']}: {m['content']}" for m in messages)
 
     def build_response(self, prompt: str, response_text: str) -> dict[str, Any]:
         return {

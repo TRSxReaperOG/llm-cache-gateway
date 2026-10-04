@@ -1,5 +1,7 @@
 # llm-cache-gateway
 
+[![CI](https://github.com/TRSxReaperOG/llm-cache-gateway/actions/workflows/ci.yml/badge.svg)](https://github.com/TRSxReaperOG/llm-cache-gateway/actions/workflows/ci.yml)
+
 ## Problem
 
 Every application built on LLM APIs pays for the same thing over and over: near-identical prompts trigger full, billable model calls every single time, even when the "new" question is really just a rewording of something asked minutes (or seconds) ago.
